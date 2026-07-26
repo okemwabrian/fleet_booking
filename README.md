@@ -25,7 +25,7 @@ This project demonstrates scalable database design, containerized development, a
 * **Database:** PostgreSQL 15
 * **Frontend:** Django Templates (HTML/CSS)
 * **Infrastructure:** Docker & Docker Compose
-* **Development Environment:** Linux (Arch / Ubuntu)
+* **Development Environment:** Linux (Arch)
 
 ## 🗺 System Architecture & Data Flow
 1. **The Route & Vehicle Setup:** Admins define the available `Vehicles` and the available `Routes` in the database.
