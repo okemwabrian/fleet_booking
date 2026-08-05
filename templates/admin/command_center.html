@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block title %}Fleet Booking | Command Center{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="glass rounded-[2rem] p-6 sm:p-8">
+    <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Admin command center</p>
+    <h1 class="mt-3 text-3xl font-bold text-white">Advanced Booking Tracking</h1>
+    <p class="mt-2 text-slate-300">Manage bookings, vehicles, and routes from one Tailwind-powered operations console.</p>
+
+    <div class="mt-4">
+      <a href="{% url 'admin-dashboard' %}" class="inline-flex rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/15">Back to admin dashboard</a>
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-2 text-sm">
+      <a href="{% url 'command-center' %}?tab=bookings" class="rounded-2xl px-4 py-2 font-semibold {% if active_tab == 'bookings' %}bg-cyan-400 text-slate-950{% else %}bg-white/10 text-slate-100{% endif %}">Bookings</a>
+      <a href="{% url 'command-center' %}?tab=vehicles" class="rounded-2xl px-4 py-2 font-semibold {% if active_tab == 'vehicles' %}bg-cyan-400 text-slate-950{% else %}bg-white/10 text-slate-100{% endif %}">Vehicles</a>
+      <a href="{% url 'command-center' %}?tab=routes" class="rounded-2xl px-4 py-2 font-semibold {% if active_tab == 'routes' %}bg-cyan-400 text-slate-950{% else %}bg-white/10 text-slate-100{% endif %}">Routes</a>
+      <a href="{% url 'command-center' %}?tab=parcels" class="rounded-2xl px-4 py-2 font-semibold {% if active_tab == 'parcels' %}bg-cyan-400 text-slate-950{% else %}bg-white/10 text-slate-100{% endif %}">Parcels</a>
+    </div>
+
+    {% if active_tab == 'bookings' %}
+    <form class="mt-6 flex flex-wrap items-end gap-3" method="get">
+      <input type="hidden" name="tab" value="bookings">
+      <div>
+        <label class="text-sm text-slate-300" for="status">Filter by status</label>
+        <select id="status" name="status" class="mt-2 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30">
+          <option value="">All</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="rounded-2xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-slate-100" type="submit">Apply</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if active_tab == 'bookings' %}
+  <div class="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Create booking</h2>
+      <form class="mt-5 space-y-4" method="post" action="{% url 'command-center-booking-create' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% for field in create_booking_form %}
+          <div>
+            <label class="text-sm text-slate-300" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+          </div>
+        {% endfor %}
+        <button class="w-full rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Create record</button>
+      </form>
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Bookings Registry</h2>
+      <div class="mt-5 space-y-4">
+        {% for booking in bookings %}
+          <article class="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Booking #{{ booking.id }}</p>
+                <h3 class="mt-2 text-lg font-semibold text-white">{{ booking.customer.username }} • {{ booking.route.origin }} to {{ booking.route.destination }}</h3>
+                <p class="mt-1 text-sm text-slate-400">{{ booking.travel_date }} • {{ booking.vehicle }}</p>
+                <p class="mt-1 text-sm text-slate-300">{{ booking.seats_booked }} seats • KES {{ booking.total_price }} • {{ booking.get_status_display }}</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <form method="post" action="{% url 'command-center-booking-status-update' booking.id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="status" value="APPROVED">
+                  <button class="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400" type="submit">Approve</button>
+                </form>
+                <a class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'command-center-booking-edit' booking.id %}">Edit</a>
+                <form method="post" action="{% url 'command-center-booking-delete' booking.id %}" onsubmit="return confirm('Delete booking #{{ booking.id }}?');">
+                  {% csrf_token %}
+                  <button class="rounded-2xl bg-rose-400/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400" type="submit">Delete</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">No bookings found for this filter.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if active_tab == 'vehicles' %}
+  <div class="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Create vehicle</h2>
+      <form class="mt-5 space-y-4" method="post" action="{% url 'command-center-vehicle-create' %}">
+        {% csrf_token %}
+        {% for field in create_vehicle_form %}
+          <div>
+            <label class="text-sm text-slate-300" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+          </div>
+        {% endfor %}
+        <button class="w-full rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Create vehicle</button>
+      </form>
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Fleet registry</h2>
+      <div class="mt-5 space-y-4">
+        {% for vehicle in vehicles %}
+          <article class="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">{{ vehicle.license_plate }}</p>
+                <h3 class="mt-2 text-lg font-semibold text-white">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.year }})</h3>
+                <p class="mt-1 text-sm text-slate-300">Capacity {{ vehicle.capacity }} seats • {{ vehicle.get_status_display }}</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <a class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'command-center-vehicle-edit' vehicle.id %}">Edit</a>
+                <form method="post" action="{% url 'command-center-vehicle-delete' vehicle.id %}" onsubmit="return confirm('Delete vehicle {{ vehicle.license_plate }}?');">
+                  {% csrf_token %}
+                  <button class="rounded-2xl bg-rose-400/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400" type="submit">Delete</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">No vehicles available.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if active_tab == 'routes' %}
+  <div class="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Create route</h2>
+      <form class="mt-5 space-y-4" method="post" action="{% url 'command-center-route-create' %}">
+        {% csrf_token %}
+        {% for field in create_route_form %}
+          <div>
+            <label class="text-sm text-slate-300" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+          </div>
+        {% endfor %}
+        <button class="w-full rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Create route</button>
+      </form>
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Route registry</h2>
+      <div class="mt-5 space-y-4">
+        {% for route in routes %}
+          <article class="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Route #{{ route.id }}</p>
+                <h3 class="mt-2 text-lg font-semibold text-white">{{ route.origin }} to {{ route.destination }}</h3>
+                <p class="mt-1 text-sm text-slate-300">{{ route.distance_km }} km • KES {{ route.base_price }} • {% if route.is_active %}Active{% else %}Inactive{% endif %}</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <a class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'command-center-route-edit' route.id %}">Edit</a>
+                <form method="post" action="{% url 'command-center-route-delete' route.id %}" onsubmit="return confirm('Delete route {{ route.origin }} to {{ route.destination }}?');">
+                  {% csrf_token %}
+                  <button class="rounded-2xl bg-rose-400/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400" type="submit">Delete</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">No routes available.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if active_tab == 'parcels' %}
+  <div class="grid gap-6 xl:grid-cols-[1fr_1.3fr]">
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Create parcel shipment</h2>
+      <form class="mt-5 space-y-4" method="post" action="{% url 'command-center-parcel-create' %}">
+        {% csrf_token %}
+        {% for field in create_parcel_form %}
+          <div>
+            <label class="text-sm text-slate-300" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+          </div>
+        {% endfor %}
+        <button class="w-full rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Create parcel</button>
+      </form>
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Parcel tracking registry</h2>
+      <div class="mt-5 space-y-4">
+        {% for parcel in parcels %}
+          <article class="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">{{ parcel.tracking_code }}</p>
+                <h3 class="mt-2 text-lg font-semibold text-white">{{ parcel.customer.username }} • {{ parcel.parcel_description }}</h3>
+                <p class="mt-1 text-sm text-slate-400">{% if parcel.route %}{{ parcel.route.origin }} to {{ parcel.route.destination }}{% else %}No route assigned{% endif %}</p>
+                <p class="mt-1 text-sm text-slate-300">Status: {{ parcel.get_status_display }} • Location: {{ parcel.current_location|default:'Pending dispatch' }} • KES {{ parcel.fee }}</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <a class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'command-center-parcel-edit' parcel.id %}">Edit</a>
+                <form method="post" action="{% url 'command-center-parcel-delete' parcel.id %}" onsubmit="return confirm('Delete parcel {{ parcel.tracking_code }}?');">
+                  {% csrf_token %}
+                  <button class="rounded-2xl bg-rose-400/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400" type="submit">Delete</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">No parcels available.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

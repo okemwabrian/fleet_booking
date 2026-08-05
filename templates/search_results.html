@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load booking_extras %}
+
+{% block title %}Fleet Booking | Search results{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <style>
+    .matatu-seat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) 0.85rem repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+
+    .matatu-seat-grid .seat-button:nth-child(4n + 1) {
+      grid-column: 1;
+    }
+
+    .matatu-seat-grid .seat-button:nth-child(4n + 2) {
+      grid-column: 2;
+    }
+
+    .matatu-seat-grid .seat-button:nth-child(4n + 3) {
+      grid-column: 4;
+    }
+
+    .matatu-seat-grid .seat-button:nth-child(4n) {
+      grid-column: 5;
+    }
+
+    .matatu-aisle-label {
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      color: rgb(125 211 252);
+    }
+
+    .seat-panel {
+      transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+
+    .seat-panel[data-open='true'] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .seat-panel[data-open='false'] {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+
+  <div class="glass rounded-[2rem] p-6 sm:p-8">
+    <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Search results</p>
+    <h1 class="mt-3 text-3xl font-bold text-white">Available trips</h1>
+    <p class="mt-2 text-slate-300">Refine your search below or continue to login to reserve seats.</p>
+
+    <form class="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_220px_auto]" action="{% url 'search-results' %}" method="get">
+      <div>
+        <label class="text-sm text-slate-300" for="id_origin">Origin</label>
+        {{ search_form.origin }}
+        {{ search_form.origin.errors }}
+      </div>
+      <div>
+        <label class="text-sm text-slate-300" for="id_destination">Destination</label>
+        {{ search_form.destination }}
+        {{ search_form.destination.errors }}
+      </div>
+      <div>
+        <label class="text-sm text-slate-300" for="id_travel_date">Travel date</label>
+        {{ search_form.travel_date }}
+        {{ search_form.travel_date.errors }}
+      </div>
+      <div class="flex items-end">
+        <button class="w-full rounded-2xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-slate-100" type="submit">Refresh</button>
+      </div>
+    </form>
+    {{ search_form.non_field_errors }}
+  </div>
+
+  <div class="space-y-4">
+    {% for card in route_cards %}
+      <div class="glass rounded-[2rem] p-6 sm:p-8">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Route</p>
+            <h2 class="mt-2 text-2xl font-semibold text-white">{{ card.route.origin }} to {{ card.route.destination }}</h2>
+            <p class="mt-1 text-sm text-slate-400">{{ card.route.distance_km }} km - KES {{ card.route.base_price }}</p>
+          </div>
+          <div class="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+            {{ card.vehicle_options|length }} vehicle(s) available
+          </div>
+        </div>
+
+        <div class="mt-6 grid gap-4 xl:grid-cols-2">
+          {% for option in card.vehicle_options %}
+            <div class="search-option rounded-3xl border border-white/10 bg-white/5 p-5" data-route-id="{{ card.route.id }}" data-vehicle-id="{{ option.vehicle.id }}" data-travel-date="{{ travel_date|date:'Y-m-d' }}" data-base-price="{{ card.route.base_price }}">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h3 class="text-lg font-semibold text-white">{{ option.vehicle.make }} {{ option.vehicle.model }}</h3>
+                  <p class="mt-1 text-sm text-slate-400">{{ option.vehicle.license_plate }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="seat-count rounded-2xl bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-300" id="remaining-{{ card.route.id }}-{{ option.vehicle.id }}">
+                    {{ option.seats_remaining }} seats left
+                  </div>
+                  <button type="button" class="seat-toggle rounded-2xl border border-orange-300/40 bg-orange-400/10 px-4 py-2 text-sm font-semibold text-orange-200 transition hover:bg-orange-400/20" aria-expanded="false" data-target-id="seat-panel-{{ card.route.id }}-{{ option.vehicle.id }}">
+                    View Seats
+                  </button>
+                </div>
+              </div>
+              <p class="mt-4 text-sm text-slate-300">Capacity: {{ option.vehicle.capacity }} seats</p>
+              <div id="seat-panel-{{ card.route.id }}-{{ option.vehicle.id }}" class="seat-panel mt-4 max-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all duration-300 ease-in-out" data-open="false">
+                <div class="seat-panel-scroll max-h-[420px] space-y-4 overflow-y-auto pr-1">
+                  <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="inline-flex items-center gap-2"><span class="h-3 w-6 rounded-full bg-orange-500"></span> Selected</span>
+                      <span class="inline-flex items-center gap-2"><span class="h-3 w-6 rounded-full bg-slate-200"></span> Available</span>
+                      <span class="inline-flex items-center gap-2"><span class="h-3 w-6 rounded-full bg-slate-700"></span> Booked</span>
+                    </div>
+                    <span class="matatu-aisle-label">Aisle Layout</span>
+                  </div>
+                  <div class="mt-4 flex justify-end">
+                    <svg class="h-7 w-7 text-cyan-300" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+                      <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+                      <path d="M12 3V9M3 12H9M15 12H21M12 15V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                  </div>
+                  <form class="mt-3 space-y-4 booking-form" action="{% url 'booking-create' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="route" value="{{ card.route.id }}">
+                    <input type="hidden" name="vehicle" value="{{ option.vehicle.id }}">
+                    <input type="hidden" name="travel_date" value="{{ travel_date|date:'Y-m-d' }}">
+                    <input type="hidden" name="seat_numbers" value="[]" class="seat-numbers-input">
+
+                    <div class="matatu-seat-grid seat-grid" data-booked-seats='{{ option.booked_seat_numbers|safe }}'>
+                      {% for seat_number in option.vehicle.capacity|seat_range %}
+                        <button
+                          type="button"
+                          class="seat-button rounded-lg px-2 py-2 text-xs font-semibold transition {% if seat_number in option.booked_seat_numbers %}bg-slate-700 text-slate-300 cursor-not-allowed{% else %}bg-slate-200 text-slate-900 hover:bg-slate-300 cursor-pointer{% endif %}"
+                          data-seat-number="{{ seat_number }}"
+                          {% if seat_number in option.booked_seat_numbers %}disabled{% endif %}
+                        >
+                          {{ seat_number }}
+                        </button>
+                      {% endfor %}
+                    </div>
+
+                    <div class="sticky bottom-0 z-10 rounded-2xl border border-white/10 bg-white/90 p-4 shadow-[0_-6px_16px_rgba(15,23,42,0.2)] backdrop-blur dark:bg-slate-800/90">
+                      <p class="text-sm text-slate-300">Selected Seats: <span class="selected-seats-label font-semibold text-cyan-300">None</span></p>
+                      <p class="mt-1 text-sm text-slate-300">Total Price: <span class="booking-total-price font-semibold text-cyan-300">KES 0.00</span></p>
+                    </div>
+
+                    <div>
+                      <label class="text-sm text-slate-300" for="payment_proof_{{ card.route.id }}_{{ option.vehicle.id }}">Payment proof (optional)</label>
+                      <input id="payment_proof_{{ card.route.id }}_{{ option.vehicle.id }}" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="file" name="payment_proof" accept="image/*">
+                    </div>
+
+                    <div>
+                      <label class="text-sm text-slate-300" for="contact_phone_{{ card.route.id }}_{{ option.vehicle.id }}">Phone number (required)</label>
+                      <input id="contact_phone_{{ card.route.id }}_{{ option.vehicle.id }}" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text" name="contact_phone" value="{{ user_phone|default:'' }}" required>
+                    </div>
+
+                    <div>
+                      <label class="text-sm text-slate-300" for="contact_email_{{ card.route.id }}_{{ option.vehicle.id }}">Email (optional)</label>
+                      <input id="contact_email_{{ card.route.id }}_{{ option.vehicle.id }}" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="email" name="contact_email" value="{{ user.email|default:'' }}">
+                    </div>
+
+                    <button class="continue-booking-button inline-flex w-full items-center justify-center rounded-2xl bg-orange-500 px-4 py-2 font-semibold text-white transition hover:bg-orange-400" type="submit">Continue / Book Now</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="glass rounded-[2rem] p-8 text-center">
+        <h2 class="text-2xl font-semibold text-white">No routes found</h2>
+        <p class="mt-2 text-slate-300">Try a different origin, destination, or travel date.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+<script>
+  document.body.dataset.view = 'search';
+  document.body.dataset.userId = '{{ user.id }}';
+  document.body.dataset.isStaff = '{{ user.is_staff|yesno:"true,false" }}';
+
+  (function () {
+    const SELECTED_CLASSES = ['bg-orange-500', 'text-white', 'hover:bg-orange-400'];
+    const AVAILABLE_CLASSES = ['bg-slate-200', 'text-slate-900', 'hover:bg-slate-300'];
+
+    const isAuthenticated = () => document.body.dataset.authenticated === 'true';
+
+    document.querySelectorAll('.seat-toggle').forEach((toggleButton) => {
+      const targetId = toggleButton.dataset.targetId;
+      const panel = targetId ? document.getElementById(targetId) : null;
+      if (!panel) {
+        return;
+      }
+
+      const setPanelState = (expand) => {
+        panel.dataset.open = expand ? 'true' : 'false';
+        panel.style.maxHeight = expand ? `${panel.scrollHeight + 8}px` : '0px';
+        toggleButton.setAttribute('aria-expanded', String(expand));
+        toggleButton.textContent = expand ? 'Hide Seats' : 'View Seats';
+      };
+
+      setPanelState(false);
+
+      toggleButton.addEventListener('click', () => {
+        const isExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
+        setPanelState(!isExpanded);
+      });
+    });
+
+    const parseBookedSeats = (gridNode) => {
+      const raw = gridNode.dataset.bookedSeats || '[]';
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map((value) => Number(value)) : [];
+      } catch (error) {
+        return [];
+      }
+    };
+
+    const toCurrency = (value) => {
+      const amount = Number(value || 0);
+      return `KES ${amount.toFixed(2)}`;
+    };
+
+    document.querySelectorAll('.search-option').forEach((optionNode) => {
+      const form = optionNode.querySelector('.booking-form');
+      const seatGrid = optionNode.querySelector('.seat-grid');
+      const seatInput = optionNode.querySelector('.seat-numbers-input');
+      const selectedLabel = optionNode.querySelector('.selected-seats-label');
+      const totalLabel = optionNode.querySelector('.booking-total-price');
+
+      if (!form || !seatGrid || !seatInput || !selectedLabel || !totalLabel) {
+        return;
+      }
+
+      const bookedSeats = new Set(parseBookedSeats(seatGrid));
+      const selectedSeats = new Set();
+      const basePrice = Number(optionNode.dataset.basePrice || 0);
+      const panel = optionNode.querySelector('.seat-panel');
+
+      const syncUi = () => {
+        const sortedSelected = Array.from(selectedSeats).sort((a, b) => a - b);
+        seatInput.value = JSON.stringify(sortedSelected);
+        selectedLabel.textContent = sortedSelected.length ? sortedSelected.join(', ') : 'None';
+        totalLabel.textContent = toCurrency(basePrice * sortedSelected.length);
+
+        if (panel && panel.dataset.open === 'true') {
+          panel.style.maxHeight = `${panel.scrollHeight + 8}px`;
+        }
+      };
+
+      seatGrid.querySelectorAll('.seat-button').forEach((button) => {
+        const seatNumber = Number(button.dataset.seatNumber || 0);
+        if (!seatNumber || bookedSeats.has(seatNumber)) {
+          return;
+        }
+
+        button.addEventListener('click', () => {
+          if (selectedSeats.has(seatNumber)) {
+            selectedSeats.delete(seatNumber);
+            button.classList.remove(...SELECTED_CLASSES);
+            button.classList.add(...AVAILABLE_CLASSES);
+          } else {
+            selectedSeats.add(seatNumber);
+            button.classList.remove(...AVAILABLE_CLASSES);
+            button.classList.add(...SELECTED_CLASSES);
+          }
+          syncUi();
+        });
+      });
+
+      form.addEventListener('submit', (event) => {
+        if (!selectedSeats.size) {
+          event.preventDefault();
+          window.alert('Please select at least one seat before booking.');
+          return;
+        }
+
+        if (!isAuthenticated()) {
+          event.preventDefault();
+          if (window.FleetAuthModal && typeof window.FleetAuthModal.openForBooking === 'function') {
+            window.FleetAuthModal.openForBooking(form);
+          } else {
+            window.location.href = `/login/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+          }
+        }
+      });
+
+      syncUi();
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fleet Booking | Dashboard{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">User dashboard</p>
+      <h1 class="mt-3 text-3xl font-bold text-white">Welcome, {{ user.first_name|default:user.username }}</h1>
+      <p class="mt-2 max-w-3xl text-slate-300">This is your private ticketing space for upcoming, active, and completed bookings.</p>
+
+      <div class="mt-5 flex flex-wrap gap-2">
+        <a href="#bookings-history" class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300">View booking history</a>
+        <a href="#transactions-history" class="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold transition hover:bg-white/15">View transactions</a>
+        <a href="#parcel-history" class="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold transition hover:bg-white/15">Track parcels</a>
+      </div>
+
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-sm text-slate-400">Total bookings</p>
+          <p id="count-total" class="mt-2 text-3xl font-bold text-white">{{ booking_counts.total }}</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-sm text-slate-400">Pending</p>
+          <p id="count-pending" class="mt-2 text-3xl font-bold text-white">{{ booking_counts.pending }}</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-sm text-slate-400">Approved</p>
+          <p id="count-approved" class="mt-2 text-3xl font-bold text-white">{{ booking_counts.approved }}</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-sm text-slate-400">Completed</p>
+          <p id="count-completed" class="mt-2 text-3xl font-bold text-white">{{ booking_counts.completed }}</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Profile</h2>
+      <form class="mt-5 space-y-4" action="{% url 'profile-update' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="flex items-center gap-3">
+          {% if profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="Avatar" class="h-11 w-11 rounded-full object-cover">
+          {% else %}
+            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">{{ user.username|slice:':1'|upper }}</div>
+          {% endif %}
+          <div>
+            <p class="font-semibold text-white">{{ user.get_full_name|default:user.username }}</p>
+            <p class="text-sm text-slate-400">{{ user.email|default:'No email set' }}</p>
+          </div>
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="id_avatar">Avatar</label>
+          {{ profile_form.avatar }}
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="id_phone_number">Phone number</label>
+          {{ profile_form.phone_number }}
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="id_theme_preference">Theme preference</label>
+          {{ profile_form.theme_preference }}
+        </div>
+        <button class="w-full rounded-2xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Save profile</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+    <div id="bookings-history" class="glass rounded-[2rem] p-6 sm:p-8">
+      <h2 class="text-2xl font-semibold text-white">Your tickets</h2>
+      <div id="bookings-list" class="mt-6 space-y-4">
+        {% for booking in bookings %}
+          <article class="booking-card rounded-3xl border border-white/10 bg-white/5 p-5" data-booking-id="{{ booking.id }}" data-customer-id="{{ booking.customer_id }}" data-status="{{ booking.status }}">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Booking #{{ booking.id }}</p>
+                <h3 class="mt-2 text-xl font-semibold text-white">{{ booking.route.origin }} to {{ booking.route.destination }}</h3>
+                <p class="mt-1 text-sm text-slate-400">{{ booking.travel_date }} - {{ booking.vehicle }}</p>
+              </div>
+              <div class="flex flex-col gap-2 text-sm text-slate-100">
+                <div class="booking-meta rounded-2xl bg-white/10 px-4 py-3">
+                  {{ booking.seats_booked }} seat(s) | {{ booking.get_status_display }}
+                </div>
+                <a class="inline-flex justify-center rounded-2xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'booking-receipt' booking.id %}" target="_blank" rel="noopener">View receipt</a>
+                {% if booking.payment_proof %}
+                  <a class="inline-flex justify-center rounded-2xl bg-white/10 px-4 py-2 font-semibold transition hover:bg-white/15" href="{{ booking.payment_proof.url }}" target="_blank" rel="noopener">View payment proof</a>
+                {% endif %}
+              </div>
+            </div>
+            <p class="mt-4 text-sm text-slate-300">Total price: KES {{ booking.total_price }}</p>
+            <p class="mt-1 text-xs text-slate-400">Contact phone: {{ booking.contact_phone|default:'Not set' }}{% if booking.contact_email %} | Email: {{ booking.contact_email }}{% endif %}</p>
+          </article>
+        {% empty %}
+          <div id="bookings-empty" class="rounded-3xl border border-dashed border-white/15 bg-white/5 p-8 text-center text-slate-300">
+            You have not booked any tickets yet. Use the search page to find a trip.
+          </div>
+        {% endfor %}
+      </div>
+
+      <div id="transactions-history" class="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+        <h3 class="text-xl font-semibold text-white">Transaction summary</h3>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-2xl bg-white/10 px-4 py-3">
+            <p class="text-sm text-slate-400">Booking spend</p>
+            <p class="text-lg font-semibold text-white">KES {{ transaction_totals.bookings_amount|floatformat:2 }}</p>
+          </div>
+          <div class="rounded-2xl bg-white/10 px-4 py-3">
+            <p class="text-sm text-slate-400">Parcel spend</p>
+            <p class="text-lg font-semibold text-white">KES {{ transaction_totals.parcel_amount|floatformat:2 }}</p>
+          </div>
+          <div class="rounded-2xl bg-cyan-400/15 px-4 py-3">
+            <p class="text-sm text-slate-400">Total transactions</p>
+            <p class="text-lg font-semibold text-white">KES {{ transaction_totals.grand_total|floatformat:2 }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="parcel-history" class="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5">
+        <h3 class="text-xl font-semibold text-white">Send parcel</h3>
+        <form class="mt-4 grid gap-4 md:grid-cols-2" method="post" action="{% url 'parcel-create' %}">
+          {% csrf_token %}
+          {% for field in parcel_form %}
+            <div class="{% if field.name == 'parcel_description' %}md:col-span-2{% endif %}">
+              <label class="text-sm text-slate-300" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {{ field.errors }}
+            </div>
+          {% endfor %}
+          <div class="md:col-span-2">
+            <button class="rounded-2xl bg-orange-500 px-4 py-2 font-semibold text-white transition hover:bg-orange-400" type="submit">Submit parcel for tracking</button>
+          </div>
+        </form>
+
+        <h4 class="mt-6 text-lg font-semibold text-white">Your parcel tracking history</h4>
+        <div class="mt-3 space-y-3">
+          {% for parcel in parcels %}
+            <article class="rounded-2xl border border-white/10 bg-white/10 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-cyan-200">{{ parcel.tracking_code }}</p>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-300">{{ parcel.get_status_display }}</p>
+              </div>
+              <p class="mt-2 text-sm text-slate-300">{{ parcel.parcel_description }}{% if parcel.route %} | {{ parcel.route.origin }} to {{ parcel.route.destination }}{% endif %}</p>
+              <p class="mt-1 text-xs text-slate-400">Current location: {{ parcel.current_location|default:'Pending dispatch' }} | Fee: KES {{ parcel.fee }}</p>
+            </article>
+          {% empty %}
+            <p class="text-sm text-slate-400">No parcel shipments yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="glass rounded-[2rem] p-6 sm:p-8">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-2xl font-semibold text-white">Live Messages</h2>
+        <span class="text-xs uppercase tracking-[0.3em] text-cyan-300">Realtime</span>
+      </div>
+
+      {% if chat_contacts %}
+        <div class="mt-4 flex flex-wrap gap-2">
+          {% for contact in chat_contacts %}
+            <a href="{% url 'dashboard' %}?contact={{ contact.id }}" data-contact-id="{{ contact.id }}" class="chat-contact-chip rounded-full px-3 py-1 text-xs font-semibold {% if selected_contact and selected_contact.id == contact.id %}bg-cyan-400 text-slate-950{% else %}bg-white/10 text-slate-200{% endif %}">@{{ contact.username }}
+              <span id="unread-{{ contact.id }}" class="hidden ml-2 rounded-full bg-rose-400 px-2 py-0.5 text-[10px] font-bold text-white">
+                0
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+
+        <div id="chat-box" class="mt-4 max-h-80 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-4">
+          {% for msg in thread_messages %}
+            <div class="rounded-2xl {% if msg.sender_id == user.id %}bg-cyan-400/10 border border-cyan-400/20{% else %}bg-white/10 border border-white/10{% endif %} px-3 py-2" data-message-id="{{ msg.id }}">
+              <p class="text-xs uppercase tracking-[0.25em] text-slate-400">{{ msg.sender.username }} • {{ msg.created_at|date:'M d, H:i' }}</p>
+              <p class="mt-1 text-sm text-slate-100">{{ msg.content }}</p>
+            </div>
+          {% empty %}
+            <p class="text-sm text-slate-400">No messages yet with this contact.</p>
+          {% endfor %}
+        </div>
+
+        <p id="chat-typing-indicator" class="mt-2 text-xs uppercase tracking-[0.25em] text-cyan-300 hidden">Typing...</p>
+
+        <form id="chat-form" class="mt-4 flex gap-2">
+          <input id="chat-receiver" type="hidden" value="{{ selected_contact.id }}">
+          <input id="chat-input" class="w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text" placeholder="Type a message..." maxlength="1000" required>
+          <button class="rounded-2xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Send</button>
+        </form>
+      {% else %}
+        <p class="mt-4 text-sm text-slate-400">No contacts are available for messaging yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+<script>
+  document.body.dataset.view = 'dashboard';
+  document.body.dataset.userId = '{{ user.id }}';
+  document.body.dataset.isStaff = '{{ user.is_staff|yesno:"true,false" }}';
+  document.body.dataset.selectedReceiver = '{{ selected_contact.id|default:"" }}';
+  document.body.dataset.unreadCounts = '{{ unread_counts_json|escapejs }}';
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'js/chat.js' %}"></script>
+{% endblock %}

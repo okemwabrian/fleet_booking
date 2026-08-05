@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Fleet Booking{% endblock %}</title>
+  {% load static %}
+  <script>
+    (function () {
+      const serverTheme = '{{ user_theme_preference|default:"system" }}';
+      const storedTheme = localStorage.getItem('fleet_theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const effectiveTheme = (serverTheme === 'dark' || serverTheme === 'light')
+        ? serverTheme
+        : (storedTheme || (prefersDark ? 'dark' : 'light'));
+      const useDark = effectiveTheme === 'dark';
+      document.documentElement.classList.toggle('dark', useDark);
+      localStorage.setItem('fleet_theme', effectiveTheme);
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    html.dark {
+      color-scheme: dark;
+    }
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 26%),
+        linear-gradient(180deg, #f7fbff 0%, #eef6ff 48%, #e8f1fb 100%);
+    }
+    html.dark body {
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 26%),
+        linear-gradient(180deg, #07111f 0%, #0b1220 48%, #050816 100%);
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.76);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      box-shadow: 0 24px 80px rgba(15, 23, 42, 0.14);
+    }
+    html.dark .glass {
+      background: rgba(8, 15, 31, 0.72);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
+    }
+    html:not(.dark) .text-white,
+    html:not(.dark) .text-slate-100,
+    html:not(.dark) .text-cyan-100 {
+      color: #0f172a !important;
+    }
+    html:not(.dark) .text-slate-300,
+    html:not(.dark) .text-slate-400 {
+      color: #334155 !important;
+    }
+    html:not(.dark) .bg-white\/5 {
+      background-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    html:not(.dark) .bg-white\/10 {
+      background-color: rgba(148, 163, 184, 0.2) !important;
+    }
+    html:not(.dark) .border-white\/10,
+    html:not(.dark) .border-white\/15 {
+      border-color: rgba(100, 116, 139, 0.3) !important;
+    }
+    html:not(.dark) .bg-slate-950\/70 {
+      background-color: rgba(248, 250, 252, 0.92) !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 antialiased" data-theme-endpoint="{% url 'profile-theme-update' %}" data-authenticated="{{ user.is_authenticated|yesno:'true,false' }}" data-auth-login-url="{% url 'ajax-login' %}" data-auth-register-url="{% url 'ajax-register' %}">
+  <div id="realtime-toasts" class="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3"></div>
+  <div class="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+    <header class="glass mb-8 rounded-[2rem] px-6 py-4">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <a href="{% url 'home' %}" class="flex items-center gap-3">
+          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 font-bold">FB</div>
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Fleet Booking</p>
+            <p class="text-lg font-semibold text-white">Bus and matatu ticketing engine</p>
+          </div>
+        </a>
+        <nav class="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+          <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'home' %}">Home</a>
+          <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'search-results' %}">Search</a>
+          <button id="theme-toggle" class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" type="button" aria-label="Toggle theme">Theme: <span id="theme-label">Auto</span></button>
+          {% if user.is_authenticated %}
+            {% if user.is_staff %}
+              <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'admin-dashboard' %}">Dashboard</a>
+            {% else %}
+              <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'user-dashboard' %}">Dashboard</a>
+            {% endif %}
+            {% if user.is_staff %}
+              <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'command-center' %}">Command Center</a>
+            {% endif %}
+            <a class="rounded-full bg-white/10 px-4 py-2 text-white transition hover:bg-white/15" href="{% url 'logout' %}">Logout</a>
+          {% else %}
+            <a class="rounded-full px-4 py-2 transition hover:bg-white/5 hover:text-white" href="{% url 'login' %}">Login</a>
+            <a class="rounded-full bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'register' %}">Register</a>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+
+    {% if messages %}
+      <div class="mb-6 space-y-3">
+        {% for message in messages %}
+          <div class="rounded-2xl px-4 py-3 text-sm {% if 'error' in message.tags %}border border-rose-400/30 bg-rose-400/10 text-rose-100{% else %}border border-cyan-400/20 bg-cyan-400/10 text-cyan-100{% endif %}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <main class="flex-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <div id="auth-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+    <div class="glass w-full max-w-lg rounded-3xl border border-white/10 p-6 sm:p-8">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-white">Continue Your Booking</h2>
+        <button id="auth-modal-close" class="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100" type="button">Close</button>
+      </div>
+      <p class="mt-2 text-sm text-slate-300">Log in or create your account to secure your selected seats instantly.</p>
+
+      <div class="mt-5 flex gap-2">
+        <button id="auth-tab-login" class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950" type="button">Login</button>
+        <button id="auth-tab-register" class="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100" type="button">Register</button>
+      </div>
+
+      <p id="auth-modal-error" class="mt-4 hidden rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100"></p>
+
+      <form id="auth-login-form" class="mt-4 space-y-4">
+        {% csrf_token %}
+        <div>
+          <label class="text-sm text-slate-300" for="auth-login-username">Username</label>
+          <input id="auth-login-username" name="username" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text" required>
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="auth-login-password">Password</label>
+          <input id="auth-login-password" name="password" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="password" required>
+        </div>
+        <button class="w-full rounded-2xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Log in and continue</button>
+      </form>
+
+      <form id="auth-register-form" class="mt-4 hidden space-y-4">
+        {% csrf_token %}
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="text-sm text-slate-300" for="auth-register-username">Username</label>
+            <input id="auth-register-username" name="username" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text" required>
+          </div>
+          <div>
+            <label class="text-sm text-slate-300" for="auth-register-email">Email</label>
+            <input id="auth-register-email" name="email" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="email" required>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="text-sm text-slate-300" for="auth-register-first-name">First name</label>
+            <input id="auth-register-first-name" name="first_name" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text">
+          </div>
+          <div>
+            <label class="text-sm text-slate-300" for="auth-register-last-name">Last name</label>
+            <input id="auth-register-last-name" name="last_name" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="text">
+          </div>
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="auth-register-password1">Password</label>
+          <input id="auth-register-password1" name="password1" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="password" required>
+        </div>
+        <div>
+          <label class="text-sm text-slate-300" for="auth-register-password2">Confirm password</label>
+          <input id="auth-register-password2" name="password2" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" type="password" required>
+        </div>
+        <button class="w-full rounded-2xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Register and continue</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="{% static 'js/theme.js' %}"></script>
+  <script src="{% static 'js/realtime.js' %}"></script>
+  <script>
+    (function () {
+      const modal = document.getElementById('auth-modal');
+      const closeButton = document.getElementById('auth-modal-close');
+      const loginTabButton = document.getElementById('auth-tab-login');
+      const registerTabButton = document.getElementById('auth-tab-register');
+      const loginForm = document.getElementById('auth-login-form');
+      const registerForm = document.getElementById('auth-register-form');
+      const errorBox = document.getElementById('auth-modal-error');
+      const loginUrl = document.body.dataset.authLoginUrl;
+      const registerUrl = document.body.dataset.authRegisterUrl;
+
+      if (!modal || !closeButton || !loginForm || !registerForm || !loginUrl || !registerUrl) {
+        return;
+      }
+
+      let pendingBookingForm = null;
+
+      const getCsrfToken = () => {
+        const csrfCookie = document.cookie
+          .split(';')
+          .map((chunk) => chunk.trim())
+          .find((chunk) => chunk.startsWith('csrftoken='));
+        return csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : '';
+      };
+
+      const setMode = (mode) => {
+        const isLogin = mode !== 'register';
+        loginForm.classList.toggle('hidden', !isLogin);
+        registerForm.classList.toggle('hidden', isLogin);
+        loginTabButton.classList.toggle('bg-cyan-400', isLogin);
+        loginTabButton.classList.toggle('text-slate-950', isLogin);
+        loginTabButton.classList.toggle('bg-white/10', !isLogin);
+        loginTabButton.classList.toggle('text-slate-100', !isLogin);
+        registerTabButton.classList.toggle('bg-cyan-400', !isLogin);
+        registerTabButton.classList.toggle('text-slate-950', !isLogin);
+        registerTabButton.classList.toggle('bg-white/10', isLogin);
+        registerTabButton.classList.toggle('text-slate-100', isLogin);
+      };
+
+      const openModal = (mode, bookingForm) => {
+        pendingBookingForm = bookingForm || pendingBookingForm;
+        setMode(mode || 'login');
+        errorBox.classList.add('hidden');
+        errorBox.textContent = '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      };
+
+      const closeModal = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      };
+
+      const normalizeErrors = (errors) => {
+        if (!errors) return 'Something went wrong. Please try again.';
+        const messages = [];
+        Object.values(errors).forEach((fieldErrors) => {
+          if (Array.isArray(fieldErrors)) {
+            fieldErrors.forEach((error) => messages.push(String(error)));
+          } else if (fieldErrors) {
+            messages.push(String(fieldErrors));
+          }
+        });
+        return messages.join(' ') || 'Something went wrong. Please try again.';
+      };
+
+      const submitAuth = async (form, endpoint) => {
+        errorBox.classList.add('hidden');
+        errorBox.textContent = '';
+
+        const formData = new FormData(form);
+        const payload = new URLSearchParams();
+        formData.forEach((value, key) => payload.append(key, value));
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          credentials: 'same-origin',
+          body: payload,
+        });
+
+        let result = {};
+        try {
+          result = await response.json();
+        } catch (error) {
+          result = {};
+        }
+
+        if (!response.ok || !result.ok) {
+          errorBox.textContent = normalizeErrors(result.errors);
+          errorBox.classList.remove('hidden');
+          return;
+        }
+
+        document.body.dataset.authenticated = 'true';
+        closeModal();
+
+        if (pendingBookingForm) {
+          const formToSubmit = pendingBookingForm;
+          pendingBookingForm = null;
+          const csrfInput = formToSubmit.querySelector('input[name="csrfmiddlewaretoken"]');
+          if (csrfInput) {
+            csrfInput.value = getCsrfToken();
+          }
+          formToSubmit.requestSubmit();
+        }
+      };
+
+      loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submitAuth(loginForm, loginUrl);
+      });
+
+      registerForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submitAuth(registerForm, registerUrl);
+      });
+
+      closeButton.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      loginTabButton.addEventListener('click', () => setMode('login'));
+      registerTabButton.addEventListener('click', () => setMode('register'));
+
+      window.FleetAuthModal = {
+        openForBooking(form) {
+          openModal('login', form);
+        },
+      };
+    })();
+  </script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

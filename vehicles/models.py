@@ -11,8 +11,9 @@ class Vehicle(models.Model):
     model = models.CharField(max_length=100)
     year = models.IntegerField()
     license_plate = models.CharField(max_length=20, unique=True)
+    capacity = models.PositiveIntegerField(default=14, help_text="Total number of passenger seats")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AVAILABLE')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.make} {self.model} - {self.license_plate}"
+        return f"{self.make} {self.model} ({self.license_plate}) - {self.capacity} seats"
