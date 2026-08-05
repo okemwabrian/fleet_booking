@@ -71,3 +71,28 @@ class ParcelShipment(models.Model):
 
     def __str__(self):
         return f"Parcel {self.tracking_code} ({self.get_status_display()})"
+
+
+class ParcelTrackingEvent(models.Model):
+    parcel = models.ForeignKey(
+        ParcelShipment,
+        on_delete=models.CASCADE,
+        related_name='tracking_events',
+    )
+    status = models.CharField(max_length=20, choices=ParcelShipment.STATUS_CHOICES)
+    location = models.CharField(max_length=150, blank=True, default='')
+    note = models.CharField(max_length=255, blank=True, default='')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='parcel_tracking_events',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.parcel.tracking_code} - {self.get_status_display()} @ {self.location or 'Unknown'}"

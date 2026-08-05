@@ -26,3 +26,19 @@ class BookingDispatcherConsumer(AsyncJsonWebsocketConsumer):
                 'booking': event['booking'],
             }
         )
+
+    async def parcel_created(self, event):
+        await self.send_json(
+            {
+                'type': 'parcel.created',
+                'parcel': event['parcel'],
+            }
+        )
+
+    async def parcel_updated(self, event):
+        await self.send_json(
+            {
+                'type': 'parcel.updated',
+                'parcel': event['parcel'],
+            }
+        )

@@ -19,11 +19,33 @@
         </div>
       {% endfor %}
 
+      <div>
+        <label class="text-sm text-slate-300" for="id_update_note">Timeline note (optional)</label>
+        <textarea id="id_update_note" name="update_note" rows="3" class="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder-slate-500 shadow-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30" placeholder="e.g. Arrived at Nakuru sorting hub and scheduled for final delivery."></textarea>
+      </div>
+
       <div class="flex flex-wrap gap-2">
         <button class="rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Save changes</button>
         <a class="rounded-2xl bg-white/10 px-5 py-3 font-semibold text-slate-100 transition hover:bg-white/15" href="{% url 'command-center' %}?tab=parcels">Back to command center</a>
       </div>
     </form>
+
+    <div class="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <h2 class="text-lg font-semibold text-white"><i class="fa-solid fa-clock-rotate-left mr-2"></i>Recent tracking history</h2>
+      <div class="mt-3 space-y-2">
+        {% for event in recent_events %}
+          <article class="rounded-xl bg-white/10 px-3 py-2 text-sm">
+            <p class="font-semibold text-cyan-200">{{ event.get_status_display }} • {{ event.created_at|date:'M d, Y H:i' }}</p>
+            <p class="mt-1 text-slate-300">{{ event.location|default:'No location update' }}</p>
+            {% if event.note %}
+              <p class="mt-1 text-xs text-slate-400">{{ event.note }}</p>
+            {% endif %}
+          </article>
+        {% empty %}
+          <p class="text-sm text-slate-400">No timeline updates yet.</p>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 </section>
 {% endblock %}

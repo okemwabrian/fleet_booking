@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from .models import Booking, ParcelShipment
+from .models import Booking, ParcelShipment, ParcelTrackingEvent
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
@@ -42,3 +42,10 @@ class ParcelShipmentAdmin(admin.ModelAdmin):
         'receiver_name',
         'receiver_phone',
     )
+
+
+@admin.register(ParcelTrackingEvent)
+class ParcelTrackingEventAdmin(admin.ModelAdmin):
+    list_display = ('parcel', 'status', 'location', 'created_by', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('parcel__tracking_code', 'location', 'note', 'created_by__username')

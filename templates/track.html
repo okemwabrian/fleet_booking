@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fleet Booking | Track Parcel{% endblock %}
+
+{% block content %}
+<section class="mx-auto max-w-5xl space-y-6">
+  <div class="glass rounded-[2rem] p-6 sm:p-8">
+    <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Public parcel tracker</p>
+    <h1 class="mt-3 text-3xl font-bold text-white">Track Any Parcel Instantly</h1>
+    <p class="mt-2 text-slate-300">Enter a tracking code such as TRK-98234 or FBPXXXXXX to view live status and location updates.</p>
+
+    <form class="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]" method="get" action="{% url 'public-track' %}">
+      <div>
+        <label class="text-sm text-slate-300" for="id_tracking_code">Tracking code</label>
+        {{ tracking_form.tracking_code }}
+        {{ tracking_form.tracking_code.errors }}
+      </div>
+      <button class="self-end rounded-2xl bg-cyan-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">
+        <i class="fa-solid fa-location-dot mr-2"></i>Track now
+      </button>
+    </form>
+  </div>
+
+  {% if tracked_parcel %}
+    <div
+      class="glass rounded-[2rem] p-6 sm:p-8"
+      data-tracked-code="{{ tracked_parcel.tracking_code }}"
+      data-route-label="{% if tracked_parcel.route %}{{ tracked_parcel.route.origin }} to {{ tracked_parcel.route.destination }}{% endif %}"
+      data-parcel-description="{{ tracked_parcel.parcel_description }}"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Tracking code</p>
+          <h2 class="mt-2 text-2xl font-bold text-white">{{ tracked_parcel.tracking_code }}</h2>
+        </div>
+        <div class="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100" id="tracked-status">
+          <i class="fa-solid fa-boxes-stacked mr-2"></i>{{ tracked_parcel.get_status_display }}
+        </div>
+      </div>
+
+      <div class="mt-5 grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Current location</p>
+          <p class="mt-2 text-lg font-semibold text-white" id="tracked-location">{{ tracked_parcel.current_location|default:'Pending dispatch' }}</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Route</p>
+          <p class="mt-2 text-lg font-semibold text-white">{% if tracked_parcel.route %}{{ tracked_parcel.route.origin }} to {{ tracked_parcel.route.destination }}{% else %}No route assigned{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Expected delivery</p>
+          <p class="mt-2 text-lg font-semibold text-white" id="tracked-delivery">{{ tracked_parcel.expected_delivery_date|default:'Not set' }}</p>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <h3 class="text-lg font-semibold text-white"><i class="fa-solid fa-clock-rotate-left mr-2"></i>Tracking history</h3>
+        <div id="tracking-history" class="mt-4 space-y-3">
+          {% for event in tracked_parcel.tracking_events.all %}
+            <article class="rounded-2xl bg-white/10 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-sm font-semibold text-cyan-200">{{ event.get_status_display }}</p>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-400">{{ event.created_at|date:'M d, Y H:i' }}</p>
+              </div>
+              <p class="mt-2 text-sm text-slate-300">{{ event.location|default:'No location update yet' }}</p>
+              {% if event.note %}
+                <p class="mt-1 text-xs text-slate-400">{{ event.note }}</p>
+              {% endif %}
+            </article>
+          {% empty %}
+            <p class="text-sm text-slate-400">No timeline updates yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'js/track.js' %}"></script>
+{% endblock %}

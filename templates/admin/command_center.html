@@ -206,6 +206,7 @@
                 <h3 class="mt-2 text-lg font-semibold text-white">{{ parcel.customer.username }} • {{ parcel.parcel_description }}</h3>
                 <p class="mt-1 text-sm text-slate-400">{% if parcel.route %}{{ parcel.route.origin }} to {{ parcel.route.destination }}{% else %}No route assigned{% endif %}</p>
                 <p class="mt-1 text-sm text-slate-300">Status: {{ parcel.get_status_display }} • Location: {{ parcel.current_location|default:'Pending dispatch' }} • KES {{ parcel.fee }}</p>
+                <a class="mt-2 inline-flex rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-white/15" href="{% url 'public-track' %}?tracking_code={{ parcel.tracking_code }}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square mr-2"></i>Open public tracking page</a>
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <a class="rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" href="{% url 'command-center-parcel-edit' parcel.id %}">Edit</a>

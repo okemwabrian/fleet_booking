@@ -13,12 +13,35 @@ This project demonstrates scalable database design, containerized development, a
 * **Dedicated Dashboard:** Users can view their active, past, and pending bookings.
 * **Booking Engine:** Users can select vehicles, pick specific travel routes, and lock in dates.
 * **Status Tracking:** Real-time visibility into whether a booking is pending, approved, or completed.
+* **Public Parcel Tracking:** Anyone can open `/track/`, enter a tracking code, and view live parcel location/status and timeline history.
 
 ### 2. Administrative Control Center
 * **Dynamic Pricing:** Admins can adjust the daily rates of vehicles or specific route prices on the fly.
 * **Route Management:** Admins can upload, create, and assign specific operational routes for the fleet.
 * **Inventory Management:** Update vehicle statuses (Available, In Maintenance, Unavailable) to prevent booking conflicts.
 * **Approval Workflow:** Review and approve or reject user booking requests.
+* **Automated Receipt Dispatch:** When a booking status changes to `APPROVED`, the system automatically emails a PDF ticket to the booking email.
+
+## Notifications Setup (Email + Optional SMS)
+
+Add these environment variables (for Django SMTP):
+
+```
+DEFAULT_FROM_EMAIL=no-reply@yourdomain.com
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.yourprovider.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your-smtp-user
+EMAIL_HOST_PASSWORD=your-smtp-password
+EMAIL_USE_TLS=true
+EMAIL_USE_SSL=false
+```
+
+Optional SMS webhook (called on approval):
+
+```
+SMS_WEBHOOK_URL=https://your-sms-service.example.com/hooks/fleet-booking
+```
 
 ## 🛠 Technical Stack
 * **Backend Framework:** Python / Django 4.2+

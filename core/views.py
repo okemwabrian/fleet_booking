@@ -10,11 +10,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_POST
+import logging
 
 import json
 
 from bookings.models import Booking, ParcelShipment
-from bookings.realtime import broadcast_booking_event
+from bookings.notifications import send_booking_approval_email, send_booking_approval_sms
+from bookings.realtime import broadcast_booking_event, broadcast_parcel_event
+from bookings.tracking import log_parcel_tracking_event
 from messaging.models import Message
 from profiles.models import UserProfile
 from routes.models import Route
@@ -28,9 +31,13 @@ from .forms import (
     CustomerLoginForm,
     CustomerSignUpForm,
     ParcelCreateForm,
+    ParcelTrackingLookupForm,
     ProfileUpdateForm,
     RouteSearchForm,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_form_errors(form):
@@ -193,7 +200,12 @@ def user_dashboard(request):
     bookings = Booking.objects.select_related('vehicle', 'route', 'customer').filter(
         customer=request.user
     ).order_by('-travel_date', '-created_at')
-    parcels = ParcelShipment.objects.select_related('route').filter(customer=request.user).order_by('-created_at')
+    parcels = (
+        ParcelShipment.objects.select_related('route')
+        .prefetch_related('tracking_events')
+        .filter(customer=request.user)
+        .order_by('-created_at')
+    )
 
     booking_counts = {
         'total': bookings.count(),
@@ -358,6 +370,33 @@ def _generate_tracking_code():
     return f"FBP{get_random_string(10).upper()}"
 
 
+def _notify_booking_approval_if_needed(booking, previous_status):
+    if booking.status != 'APPROVED' or previous_status == 'APPROVED':
+        return False
+
+    try:
+        emailed = send_booking_approval_email(booking)
+    except Exception:
+        logger.exception('Failed to send booking approval email for booking %s', booking.pk)
+        emailed = False
+
+    sms_sent = send_booking_approval_sms(booking)
+    return emailed or sms_sent
+
+
+def _build_parcel_update_note(previous_status, new_status, previous_location, new_location, manual_note=''):
+    changes = []
+    if previous_status != new_status:
+        changes.append(f'Status updated from {previous_status} to {new_status}.')
+    if (previous_location or '').strip() != (new_location or '').strip():
+        from_label = (previous_location or 'Unknown location').strip()
+        to_label = (new_location or 'Unknown location').strip()
+        changes.append(f'Location moved from {from_label} to {to_label}.')
+    if manual_note:
+        changes.append(manual_note.strip())
+    return ' '.join(changes).strip()
+
+
 @login_required
 @require_POST
 def create_parcel_shipment(request):
@@ -375,6 +414,8 @@ def create_parcel_shipment(request):
     if not parcel.current_location:
         parcel.current_location = parcel.route.origin if parcel.route else 'Received at booking office'
     parcel.save()
+    log_parcel_tracking_event(parcel=parcel, created_by=request.user, note='Shipment request submitted.')
+    broadcast_parcel_event('parcel.created', parcel)
 
     messages.success(request, f'Parcel submitted successfully. Tracking code: {parcel.tracking_code}.')
     return redirect('user-dashboard')
@@ -394,10 +435,14 @@ def command_center_update_booking_status(request, pk):
     previous_status = booking.status
     booking.status = status_value
     booking.save(update_fields=['status'])
+    notifications_sent = _notify_booking_approval_if_needed(booking, previous_status)
 
     if booking.status != previous_status:
         broadcast_booking_event('booking.updated', booking)
-    messages.success(request, f'Booking #{booking.pk} status updated to {booking.get_status_display()}.')
+    if notifications_sent:
+        messages.success(request, f'Booking #{booking.pk} status updated to {booking.get_status_display()}. Receipt notifications sent.')
+    else:
+        messages.success(request, f'Booking #{booking.pk} status updated to {booking.get_status_display()}.')
     return redirect(f"{reverse_lazy('command-center')}?tab=bookings")
 
 
@@ -414,6 +459,8 @@ def command_center_create_parcel(request):
         if not parcel.tracking_code:
             parcel.tracking_code = _generate_tracking_code()
         parcel.save()
+        log_parcel_tracking_event(parcel=parcel, created_by=request.user, note='Shipment record created by dispatcher.')
+        broadcast_parcel_event('parcel.created', parcel)
         messages.success(request, f'Parcel {parcel.tracking_code} created successfully.')
     else:
         messages.error(request, 'Parcel creation failed. Please review form values.')
@@ -423,11 +470,28 @@ def command_center_create_parcel(request):
 @staff_member_required
 def command_center_edit_parcel(request, pk):
     parcel = get_object_or_404(ParcelShipment, pk=pk)
+    previous_status_code = parcel.status
+    previous_status = parcel.get_status_display()
+    previous_location = parcel.current_location
 
     if request.method == 'POST':
         form = AdminParcelForm(request.POST, instance=parcel)
         if form.is_valid():
-            form.save()
+            updated_parcel = form.save()
+            note = _build_parcel_update_note(
+                previous_status=previous_status,
+                new_status=updated_parcel.get_status_display(),
+                previous_location=previous_location,
+                new_location=updated_parcel.current_location,
+                manual_note=request.POST.get('update_note', ''),
+            )
+            if note:
+                log_parcel_tracking_event(parcel=updated_parcel, created_by=request.user, note=note)
+            if (
+                updated_parcel.status != previous_status_code
+                or (updated_parcel.current_location or '').strip() != (previous_location or '').strip()
+            ):
+                broadcast_parcel_event('parcel.updated', updated_parcel)
             messages.success(request, f'Parcel {parcel.tracking_code} updated successfully.')
             return redirect(f"{reverse_lazy('command-center')}?tab=parcels")
         messages.error(request, 'Parcel update failed. Please fix the form errors.')
@@ -440,6 +504,7 @@ def command_center_edit_parcel(request, pk):
         {
             'parcel': parcel,
             'form': form,
+            'recent_events': parcel.tracking_events.select_related('created_by')[:10],
         },
     )
 
@@ -464,6 +529,7 @@ def command_center_create_booking(request):
     form = AdminBookingForm(request.POST, request.FILES)
     if form.is_valid():
         booking = form.save()
+        _notify_booking_approval_if_needed(booking, previous_status='')
         broadcast_booking_event('booking.created', booking)
         messages.success(request, 'Booking created successfully from command center.')
     else:
@@ -480,6 +546,7 @@ def command_center_edit_booking(request, pk):
         form = AdminBookingForm(request.POST, request.FILES, instance=booking)
         if form.is_valid():
             updated_booking = form.save()
+            _notify_booking_approval_if_needed(updated_booking, previous_status)
             if updated_booking.status != previous_status:
                 broadcast_booking_event('booking.updated', updated_booking)
             messages.success(request, f'Booking #{booking.pk} updated successfully.')
@@ -607,3 +674,28 @@ def command_center_delete_route(request, pk):
     route.delete()
     messages.success(request, f'Route {label} deleted.')
     return redirect(f"{reverse_lazy('command-center')}?tab=routes")
+
+
+def public_track_parcel(request):
+    form = ParcelTrackingLookupForm(request.GET or None)
+    parcel = None
+
+    if request.GET.get('tracking_code') and form.is_valid():
+        tracking_code = form.cleaned_data['tracking_code']
+        parcel = (
+            ParcelShipment.objects.select_related('route')
+            .prefetch_related('tracking_events__created_by')
+            .filter(tracking_code__iexact=tracking_code)
+            .first()
+        )
+        if not parcel:
+            messages.error(request, f'No parcel found for tracking code {tracking_code}.')
+
+    return render(
+        request,
+        'track.html',
+        {
+            'tracking_form': form,
+            'tracked_parcel': parcel,
+        },
+    )

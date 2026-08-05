@@ -138,6 +138,27 @@ class ParcelCreateForm(StyledFormMixin, forms.ModelForm):
         self._apply_field_classes()
 
 
+class ParcelTrackingLookupForm(StyledFormMixin, forms.Form):
+    tracking_code = forms.CharField(
+        max_length=20,
+        required=True,
+        label='Tracking code',
+        widget=forms.TextInput(
+            attrs={
+                'placeholder': 'TRK-98234 or FBPXXXXXX',
+                'autocomplete': 'off',
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._apply_field_classes()
+
+    def clean_tracking_code(self):
+        return (self.cleaned_data.get('tracking_code') or '').strip().upper()
+
+
 class AdminParcelForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = ParcelShipment

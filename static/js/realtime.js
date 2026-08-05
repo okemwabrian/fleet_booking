@@ -216,7 +216,16 @@
       return;
     }
 
-    if (!payload || !payload.booking) {
+    if (!payload) {
+      return;
+    }
+
+    if ((payload.type === 'parcel.created' || payload.type === 'parcel.updated') && payload.parcel) {
+      window.dispatchEvent(new CustomEvent('fleet:parcel-realtime', { detail: payload.parcel }));
+      return;
+    }
+
+    if (!payload.booking) {
       return;
     }
 

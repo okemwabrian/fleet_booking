@@ -36,3 +36,36 @@ def broadcast_booking_event(event_type, booking):
             'booking': build_booking_payload(booking),
         },
     )
+
+
+def build_parcel_payload(parcel):
+    route_label = ''
+    if parcel.route_id:
+        route_label = f'{parcel.route.origin} to {parcel.route.destination}'
+
+    return {
+        'id': parcel.id,
+        'tracking_code': parcel.tracking_code,
+        'customer_id': parcel.customer_id,
+        'route_id': parcel.route_id,
+        'route_label': route_label,
+        'status': parcel.status,
+        'status_display': parcel.get_status_display(),
+        'current_location': parcel.current_location,
+        'expected_delivery_date': parcel.expected_delivery_date.isoformat() if parcel.expected_delivery_date else '',
+        'updated_at': parcel.updated_at.isoformat(),
+    }
+
+
+def broadcast_parcel_event(event_type, parcel):
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+
+    async_to_sync(channel_layer.group_send)(
+        'dispatcher',
+        {
+            'type': event_type,
+            'parcel': build_parcel_payload(parcel),
+        },
+    )

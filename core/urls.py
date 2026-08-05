@@ -34,6 +34,7 @@ from core.views import (
     home,
     register,
     search_results,
+    public_track_parcel,
     update_theme_preference,
     update_profile,
     user_dashboard,
@@ -47,6 +48,7 @@ router.register(r'routes', RouteViewSet)
 urlpatterns = [
     path('', home, name='home'),
     path('search/', search_results, name='search-results'),
+    path('track/', public_track_parcel, name='public-track'),
     path('register/', register, name='register'),
     path('auth/ajax/login/', ajax_login, name='ajax-login'),
     path('auth/ajax/register/', ajax_register, name='ajax-register'),
